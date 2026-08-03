@@ -1,6 +1,6 @@
 {
   "name": "QuizMaster Pro - Quiz Management System",
-  "description": "Professional full-stack Quiz Management application supporting Admin, Faculty, and Student roles with AI quiz generation, timed tests, auto-grading, and analytics.",
+  "description": "Full-stack MERN (MongoDB, Express, React, Node) Quiz Management system with clean frontend and backend separation in JavaScript and CSS, featuring AI quiz generation, timed tests, auto-grading, and admin controls.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

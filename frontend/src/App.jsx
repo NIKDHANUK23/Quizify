@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
+import { LoginPage } from './components/LoginPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { FacultyDashboard } from './components/faculty/FacultyDashboard';
 import { StudentDashboard } from './components/student/StudentDashboard';
@@ -15,8 +16,16 @@ export function App() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // User Role & Tab State
-  const [currentRole, setCurrentRole] = useState('faculty'); // default role
+  // Authenticated User State (persisted in localStorage)
+  const [authUser, setAuthUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('quizmaster_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [activeTab, setActiveTab] = useState('overview');
 
   const fetchData = async () => {
@@ -47,94 +56,125 @@ export function App() {
     fetchData();
   }, []);
 
-  const currentUser =
-    users.find((u) => u.role === currentRole) ||
-    ({
-      admin: { name: 'Elena Rostova', email: 'elena.admin@university.edu', role: 'admin', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150' },
-      faculty: { name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@university.edu', role: 'faculty', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' },
-      student: { name: 'Alex Rivera', email: 'alex.rivera@student.edu', role: 'student', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150' },
-    }[currentRole]);
-
-  const handleRoleSelect = (role) => {
-    setCurrentRole(role);
-    setActiveTab('overview');
+  const handleLogin = async ({ email, password, role }) => {
+    try {
+      const res = await api.loginUser({ email, password, role });
+      if (res && res.user) {
+        setAuthUser(res.user);
+        localStorage.setItem('quizmaster_auth_user', JSON.stringify(res.user));
+        setActiveTab('overview');
+        return res.user;
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      throw err;
+    }
   };
 
-  const roleTabs = {
-    admin: [
-      { id: 'overview', label: 'System Overview', icon: LayoutDashboard },
-      { id: 'users', label: 'User Directory', icon: Users },
-      { id: 'courses', label: 'Courses Catalog', icon: BookOpen },
-      { id: 'logs', label: 'Audit Trail', icon: Shield },
-    ],
-    faculty: [
-      { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'quizzes', label: 'Manage Quizzes', icon: FileText },
-      { id: 'ai-generator', label: 'Gemini AI Builder', icon: Sparkles },
-      { id: 'submissions', label: 'Student Results', icon: Award },
-    ],
-    student: [
+  const handleRegister = async (userData) => {
+    try {
+      const created = await api.createUser(userData);
+      await fetchData(); // refresh database user list
+      return created;
+    } catch (err) {
+      console.error('Registration error:', err);
+      throw err;
+    }
+  };
+
+  const handleLogout = () => {
+    setAuthUser(null);
+    localStorage.removeItem('quizmaster_auth_user');
+  };
+
+  // Role-specific navigation tabs
+  const getRoleTabs = (role) => {
+    if (role === 'admin') {
+      return [
+        { id: 'overview', label: 'System Overview', icon: LayoutDashboard },
+        { id: 'users', label: 'User Directory', icon: Users },
+        { id: 'courses', label: 'Courses Catalog', icon: BookOpen },
+        { id: 'logs', label: 'Audit Trail', icon: Shield },
+      ];
+    }
+    if (role === 'faculty') {
+      return [
+        { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'quizzes', label: 'Manage Quizzes', icon: FileText },
+        { id: 'ai-generator', label: 'Gemini AI Builder', icon: Sparkles },
+        { id: 'submissions', label: 'Student Results', icon: Award },
+      ];
+    }
+    // Student
+    return [
       { id: 'overview', label: 'Overview', icon: LayoutDashboard },
       { id: 'tests', label: 'Available Tests', icon: FileText },
       { id: 'results', label: 'My Scores', icon: CheckCircle2 },
-    ],
-  }[currentRole];
+    ];
+  };
 
   return (
     <div className="app-container">
-      <Navbar currentUser={currentUser} onRoleSelect={handleRoleSelect} />
+      <Navbar currentUser={authUser} onLogout={handleLogout} />
 
       <main className="main-content">
-        {/* Role Tab Navigation Bar */}
-        <div className="tabs-bar">
-          {roleTabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {!authUser ? (
+          <LoginPage onLogin={handleLogin} />
+        ) : (
+          <>
+            {/* Navigation Tabs Bar for Logged-In User's Specific Role */}
+            <div className="tabs-bar">
+              {getRoleTabs(authUser.role).map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* Dynamic Dashboard View */}
-        {currentRole === 'admin' && (
-          <AdminDashboard
-            activeTab={activeTab}
-            users={users}
-            courses={courses}
-            stats={stats}
-            logs={logs}
-            onRefreshData={fetchData}
-          />
-        )}
+            {/* STRICT ROLE-BASED DASHBOARD ACCESS */}
+            {authUser.role === 'admin' && (
+              <AdminDashboard
+                activeTab={activeTab}
+                users={users}
+                courses={courses}
+                stats={stats}
+                logs={logs}
+                onRefreshData={fetchData}
+              />
+            )}
 
-        {currentRole === 'faculty' && (
-          <FacultyDashboard
-            activeTab={activeTab}
-            currentUser={currentUser}
-            courses={courses}
-            quizzes={quizzes}
-            submissions={submissions}
-            onRefreshData={fetchData}
-          />
-        )}
+            {authUser.role === 'faculty' && (
+              <FacultyDashboard
+                activeTab={activeTab}
+                currentUser={authUser}
+                courses={courses}
+                quizzes={quizzes}
+                submissions={submissions}
+                onRefreshData={fetchData}
+              />
+            )}
 
-        {currentRole === 'student' && (
-          <StudentDashboard
-            activeTab={activeTab}
-            currentUser={currentUser}
-            quizzes={quizzes}
-            submissions={submissions}
-            onRefreshData={fetchData}
-          />
+            {authUser.role === 'student' && (
+              <StudentDashboard
+                activeTab={activeTab}
+                currentUser={authUser}
+                quizzes={quizzes}
+                submissions={submissions}
+                onRefreshData={fetchData}
+              />
+            )}
+          </>
         )}
       </main>
     </div>
   );
 }
+

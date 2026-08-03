@@ -9,7 +9,20 @@ export const api = {
     return res.json();
   },
 
-  // Users
+  // Users & Auth
+  async loginUser(data) {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok || result.error) {
+      throw new Error(result.error || 'Authentication failed');
+    }
+    return result;
+  },
+
   async getUsers() {
     const res = await fetch(`${API_BASE}/users`);
     return res.json();

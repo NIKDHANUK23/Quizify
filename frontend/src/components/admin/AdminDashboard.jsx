@@ -28,6 +28,7 @@ export function AdminDashboard({ activeTab, users = [], courses = [], stats, log
   const [userFormData, setUserFormData] = useState({
     name: '',
     email: '',
+    password: '',
     role: 'student',
     department: 'Computer Science',
   });
@@ -50,7 +51,7 @@ export function AdminDashboard({ activeTab, users = [], courses = [], stats, log
     }
     setIsUserModalOpen(false);
     setEditingUser(null);
-    setUserFormData({ name: '', email: '', role: 'student', department: 'Computer Science' });
+    setUserFormData({ name: '', email: '', password: '', role: 'student', department: 'Computer Science' });
     onRefreshData();
   };
 
@@ -106,7 +107,7 @@ export function AdminDashboard({ activeTab, users = [], courses = [], stats, log
           <button
             onClick={() => {
               setEditingUser(null);
-              setUserFormData({ name: '', email: '', role: 'student', department: 'Computer Science' });
+              setUserFormData({ name: '', email: '', password: 'password123', role: 'student', department: 'Computer Science' });
               setIsUserModalOpen(true);
             }}
             className="btn btn-primary"
@@ -365,6 +366,18 @@ export function AdminDashboard({ activeTab, users = [], courses = [], stats, log
               required
               value={userFormData.email}
               onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="label">Password (Login Secret)</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. password123"
+              value={userFormData.password}
+              onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
               className="input"
             />
           </div>

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getUsers, createUser, updateUser, deleteUser } from '../controllers/userController.js';
+import { getUsers, loginUser, createUser, updateUser, deleteUser } from '../controllers/userController.js';
 import { getCourses, createCourse } from '../controllers/courseController.js';
 import { getQuizzes, createQuiz, updateQuiz, deleteQuiz, generateAIQuiz } from '../controllers/quizController.js';
 import { getSubmissions, submitQuiz, gradeSubmission } from '../controllers/submissionController.js';
@@ -12,7 +12,8 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok', stack: 'MERN', framework: 'Vite Express' });
 });
 
-// Users
+// Users & Authentication
+router.post('/auth/login', loginUser);
 router.get('/users', getUsers);
 router.post('/users', createUser);
 router.put('/users/:id', updateUser);

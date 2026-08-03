@@ -4,34 +4,13 @@ import mongoose from 'mongoose';
 export const memoryStore = {
   users: [
     {
-      id: 'usr-1',
-      _id: 'usr-1',
-      name: 'Dr. Sarah Jenkins',
-      email: 'sarah.jenkins@university.edu',
-      role: 'faculty',
-      department: 'Computer Science',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'usr-2',
-      _id: 'usr-2',
-      name: 'Alex Rivera',
-      email: 'alex.rivera@student.edu',
-      role: 'student',
-      department: 'Computer Science',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'usr-3',
-      _id: 'usr-3',
-      name: 'Elena Rostova',
-      email: 'elena.admin@university.edu',
+      id: 'usr-admin-seed',
+      _id: 'usr-admin-seed',
+      name: 'System Admin',
+      email: 'Admin@ad.ad',
+      password: 'Admin@ad.ad',
       role: 'admin',
-      department: 'Academic Affairs',
+      department: 'System Administration',
       avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -145,9 +124,9 @@ export const memoryStore = {
 let isConnectedToMongo = false;
 
 export default async function connectDB() {
-  const mongoURI = process.env.MONGODB_URI;
+  const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!mongoURI) {
-    console.log('[MERN DB] No MONGODB_URI provided. Operating with in-memory MongoDB data layer.');
+    console.log('[MERN DB] No MONGO_URI provided. Operating with in-memory MongoDB data layer.');
     return false;
   }
 
@@ -157,6 +136,22 @@ export default async function connectDB() {
     });
     isConnectedToMongo = true;
     console.log('[MERN DB] MongoDB connected successfully via Mongoose.');
+
+    // Seed initial admin user if not present in MongoDB
+    try {
+      const User = mongoose.models.User || mongoose.model('User');
+      if (User) {
+        const seedUser = memoryStore.users[0];
+        await User.findOneAndUpdate(
+          { email: seedUser.email.toLowerCase() },
+          seedUser,
+          { upsert: true, new: true }
+        );
+      }
+    } catch (sErr) {
+      console.warn('[MERN DB] Admin seed check notice:', sErr.message);
+    }
+
     return true;
   } catch (err) {
     console.warn('[MERN DB] Could not connect to external MongoDB URI. Using resilient in-memory data store instead.', err.message);

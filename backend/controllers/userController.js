@@ -13,27 +13,85 @@ export const getUsers = async (req, res) => {
   }
 };
 
+export const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    let user = null;
+
+    if (isConnected()) {
+      user = await User.findOne({ email: { $regex: new RegExp(`^${cleanEmail.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, 'i') } });
+    }
+
+    if (!user) {
+      user = memoryStore.users.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password. User not found.' });
+    }
+
+    // Verify password case-insensitively for user convenience
+    if (user.password) {
+      const storedPass = String(user.password).trim();
+      if (storedPass !== cleanPassword && storedPass.toLowerCase() !== cleanPassword.toLowerCase()) {
+        return res.status(401).json({ error: 'Invalid password. Please try again.' });
+      }
+    }
+
+    return res.json({
+      success: true,
+      user,
+      token: `jwt-auth-token-${user.id || user._id || 'mock'}`,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 export const createUser = async (req, res) => {
   try {
-    const { name, email, role, department } = req.body;
+    const { name, email, password, role, department } = req.body;
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+
     const newUser = {
       id: `usr-${Date.now()}`,
       _id: `usr-${Date.now()}`,
-      name,
-      email,
+      name: name || 'User',
+      email: cleanEmail,
+      password: password || 'password123',
       role: role || 'student',
       department: department || 'General',
-      avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150`,
+      avatar: role === 'faculty'
+        ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150'
+        : role === 'admin'
+        ? 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150'
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
       status: 'active',
       createdAt: new Date().toISOString(),
     };
 
-    if (isConnected()) {
-      const userDoc = await User.create(newUser);
-      return res.status(201).json(userDoc);
+    // Keep memoryStore updated regardless of DB connection state
+    const existingIndex = memoryStore.users.findIndex(u => u.email.toLowerCase() === cleanEmail);
+    if (existingIndex !== -1) {
+      memoryStore.users[existingIndex] = newUser;
+    } else {
+      memoryStore.users.unshift(newUser);
     }
 
-    memoryStore.users.unshift(newUser);
+    if (isConnected()) {
+      try {
+        await User.findOneAndUpdate({ email: cleanEmail }, newUser, { upsert: true, new: true });
+      } catch (e) {
+        console.warn('MongoDB user create warning:', e.message);
+      }
+    }
+
     return res.status(201).json(newUser);
   } catch (err) {
     return res.status(500).json({ error: err.message });

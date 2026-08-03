@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
 const auditLogSchema = new mongoose.Schema({
+  _id: { type: String },
+  id: { type: String },
   userId: { type: String, required: true },
   userName: { type: String, required: true },
   userRole: { type: String, required: true },

@@ -59,9 +59,10 @@ export const createUser = async (req, res) => {
     const { name, email, password, role, department } = req.body;
     const cleanEmail = email ? email.trim().toLowerCase() : '';
 
+    const newId = `usr-${Date.now()}`;
     const newUser = {
-      id: `usr-${Date.now()}`,
-      _id: `usr-${Date.now()}`,
+      id: newId,
+      _id: newId,
       name: name || 'User',
       email: cleanEmail,
       password: password || 'password123',
@@ -76,23 +77,28 @@ export const createUser = async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    // Keep memoryStore updated regardless of DB connection state
-    const existingIndex = memoryStore.users.findIndex(u => u.email.toLowerCase() === cleanEmail);
-    if (existingIndex !== -1) {
-      memoryStore.users[existingIndex] = newUser;
-    } else {
-      memoryStore.users.unshift(newUser);
-    }
+    let savedUser = newUser;
 
     if (isConnected()) {
       try {
-        await User.findOneAndUpdate({ email: cleanEmail }, newUser, { upsert: true, new: true });
+        savedUser = await User.findOneAndUpdate(
+          { email: cleanEmail },
+          newUser,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
       } catch (e) {
-        console.warn('MongoDB user create warning:', e.message);
+        console.warn('MongoDB user create error:', e.message);
       }
     }
 
-    return res.status(201).json(newUser);
+    const existingIndex = memoryStore.users.findIndex(u => u.email && u.email.toLowerCase() === cleanEmail);
+    if (existingIndex !== -1) {
+      memoryStore.users[existingIndex] = savedUser;
+    } else {
+      memoryStore.users.unshift(savedUser);
+    }
+
+    return res.status(201).json(savedUser);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -104,8 +110,16 @@ export const updateUser = async (req, res) => {
     const updates = req.body;
 
     if (isConnected()) {
-      const updated = await User.findByIdAndUpdate(id, updates, { new: true });
-      return res.json(updated);
+      const updated = await User.findOneAndUpdate(
+        { $or: [{ _id: id }, { id: id }] },
+        updates,
+        { new: true }
+      );
+      if (updated) {
+        const idx = memoryStore.users.findIndex((u) => u.id === id || u._id === id);
+        if (idx !== -1) memoryStore.users[idx] = updated;
+        return res.json(updated);
+      }
     }
 
     const index = memoryStore.users.findIndex((u) => u.id === id || u._id === id);
@@ -124,8 +138,7 @@ export const deleteUser = async (req, res) => {
     const { id } = req.params;
 
     if (isConnected()) {
-      await User.findByIdAndDelete(id);
-      return res.json({ success: true });
+      await User.findOneAndDelete({ $or: [{ _id: id }, { id: id }] });
     }
 
     memoryStore.users = memoryStore.users.filter((u) => u.id !== id && u._id !== id);

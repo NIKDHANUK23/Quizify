@@ -51,8 +51,16 @@ export const updateQuiz = async (req, res) => {
     }
 
     if (isConnected()) {
-      const updated = await Quiz.findByIdAndUpdate(id, updates, { new: true });
-      return res.json(updated);
+      const updated = await Quiz.findOneAndUpdate(
+        { $or: [{ _id: id }, { id: id }] },
+        updates,
+        { new: true }
+      );
+      if (updated) {
+        const idx = memoryStore.quizzes.findIndex((q) => q.id === id || q._id === id);
+        if (idx !== -1) memoryStore.quizzes[idx] = updated;
+        return res.json(updated);
+      }
     }
 
     const index = memoryStore.quizzes.findIndex((q) => q.id === id || q._id === id);
@@ -71,8 +79,7 @@ export const deleteQuiz = async (req, res) => {
     const { id } = req.params;
 
     if (isConnected()) {
-      await Quiz.findByIdAndDelete(id);
-      return res.json({ success: true });
+      await Quiz.findOneAndDelete({ $or: [{ _id: id }, { id: id }] });
     }
 
     memoryStore.quizzes = memoryStore.quizzes.filter((q) => q.id !== id && q._id !== id);

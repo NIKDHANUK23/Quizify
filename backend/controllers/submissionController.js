@@ -20,8 +20,9 @@ export const submitQuiz = async (req, res) => {
 
     let targetQuiz = null;
     if (isConnected()) {
-      targetQuiz = await Quiz.findById(quizId);
-    } else {
+      targetQuiz = await Quiz.findOne({ $or: [{ _id: quizId }, { id: quizId }] });
+    }
+    if (!targetQuiz) {
       targetQuiz = memoryStore.quizzes.find((q) => q.id === quizId || q._id === quizId);
     }
 
@@ -105,8 +106,9 @@ export const gradeSubmission = async (req, res) => {
 
     let sub = null;
     if (isConnected()) {
-      sub = await Submission.findById(id);
-    } else {
+      sub = await Submission.findOne({ $or: [{ _id: id }, { id: id }] });
+    }
+    if (!sub) {
       sub = memoryStore.submissions.find((s) => s.id === id || s._id === id);
     }
 
@@ -130,8 +132,16 @@ export const gradeSubmission = async (req, res) => {
     };
 
     if (isConnected()) {
-      const updated = await Submission.findByIdAndUpdate(id, updates, { new: true });
-      return res.json(updated);
+      const updated = await Submission.findOneAndUpdate(
+        { $or: [{ _id: id }, { id: id }] },
+        updates,
+        { new: true }
+      );
+      if (updated) {
+        const idx = memoryStore.submissions.findIndex((s) => s.id === id || s._id === id);
+        if (idx !== -1) memoryStore.submissions[idx] = updated;
+        return res.json(updated);
+      }
     }
 
     const index = memoryStore.submissions.findIndex((s) => s.id === id || s._id === id);

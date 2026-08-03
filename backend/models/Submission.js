@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
 const submissionSchema = new mongoose.Schema({
+  _id: { type: String },
+  id: { type: String },
   quizId: { type: String, required: true },
   quizTitle: { type: String, required: true },
   courseCode: { type: String, required: true },
